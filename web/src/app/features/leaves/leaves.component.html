@@ -1,0 +1,279 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Leaves</h1>
+      <p *ngIf="isAdmin">Review and approve or reject leave requests from all employees.</p>
+      <p *ngIf="!isAdmin">Apply for leave and track your requests.</p>
+    </div>
+    <button class="btn btn-primary" *ngIf="!isAdmin" (click)="toggleForm()">
+      {{ showForm ? 'Close form' : 'Apply for Leave' }}
+    </button>
+  </div>
+
+  <div class="alert alert-error" *ngIf="error"><span>{{ error }}</span><button class="btn btn-sm btn-secondary" (click)="load()">Retry</button></div>
+
+  <section class="balances" *ngIf="balances.length" aria-label="My leave balances">
+    <h2 class="section-title accent-title-teal">My Balances</h2>
+    <div class="balances-grid">
+      <div class="stat-card donut-card" *ngFor="let b of balances; let i = index" [ngClass]="balanceAccent(i)">
+        <div class="donut-ring-wrap" role="img" [attr.aria-label]="b.leaveTypeName + ': ' + b.remainingDays + ' of ' + b.totalDays + ' days left'">
+          <svg class="donut-ring" viewBox="0 0 84 84" aria-hidden="true">
+            <circle class="ring-track" cx="42" cy="42" r="34" fill="none" stroke-width="9"></circle>
+            <circle class="ring-fill" cx="42" cy="42" r="34" fill="none" stroke-width="9" [attr.stroke-dasharray]="ringDash(b.totalDays, b.usedDays)"></circle>
+          </svg>
+          <span class="ring-center"><strong>{{ b.remainingDays }}</strong><small>left</small></span>
+        </div>
+        <div>
+          <div class="stat-card-name">{{ b.leaveTypeName }}</div>
+          <div class="donut-left">{{ b.remainingDays }} of {{ b.totalDays }} days left</div>
+          <div class="stat-card-meta">Used {{ b.usedDays }} of {{ b.totalDays }} days</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card apply-card" *ngIf="!isAdmin && showForm">
+    <h2 class="section-title accent-title-amber">Apply for Leave</h2>
+    <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
+    <form (ngSubmit)="apply()">
+      <div class="form-grid">
+        <div class="field">
+          <label for="lt">Leave type *</label>
+          <select id="lt" name="leaveTypeId" [(ngModel)]="leaveTypeId" #ltField="ngModel">
+            <option [ngValue]="0">Select leave type</option>
+            <option *ngFor="let t of leaveTypes" [ngValue]="t.id">
+              {{ t.name }}<ng-container *ngIf="remainingFor(t.id) !== null"> — {{ remainingFor(t.id) }} days left</ng-container>
+            </option>
+          </select>
+          <div class="field-error" *ngIf="ltField.touched && !leaveTypeId">Please select a leave type.</div>
+        </div>
+        <div class="field">
+          <label for="sd">Start date *</label>
+          <input id="sd" type="date" name="startDate" [(ngModel)]="startDate" #sdField="ngModel">
+          <div class="field-error" *ngIf="sdField.touched && !startDate">Start date is required.</div>
+        </div>
+        <div class="field">
+          <label for="ed">End date *</label>
+          <input id="ed" type="date" name="endDate" [(ngModel)]="endDate" #edField="ngModel">
+          <div class="field-error" *ngIf="edField.touched && !endDate">End date is required.</div>
+          <div class="field-error" *ngIf="startDate && endDate && endDate < startDate">End date cannot be before the start date.</div>
+        </div>
+        <div class="field">
+          <label for="reason">Reason *</label>
+          <textarea id="reason" name="reason" [(ngModel)]="reason" #reasonField="ngModel" rows="2" placeholder="e.g. Family function"></textarea>
+          <div class="field-error" *ngIf="reasonField.touched && !reason.trim()">Reason is required.</div>
+        </div>
+      </div>
+      <div class="days-line" *ngIf="requestedDays !== null">
+        Duration: <strong>{{ requestedDays }} day{{ requestedDays === 1 ? '' : 's' }}</strong>
+        <span *ngIf="remainingFor(leaveTypeId) !== null"> · {{ remainingFor(leaveTypeId) }} days remaining</span>
+      </div>
+      <div class="balance-warning" *ngIf="balanceWarning">{{ balanceWarning }}</div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit" [disabled]="submitting">{{ submitting ? 'Submitting...' : 'Submit request' }}</button>
+        <button class="btn btn-secondary" type="button" (click)="toggleForm()">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <section class="card calendar-card" [attr.aria-label]="(isAdmin ? 'Team leave calendar for ' : 'My leave calendar for ') + calendarTitle">
+    <div class="card-head-row">
+      <h2 class="section-title accent-title-teal">{{ isAdmin ? 'Team Leave Calendar' : 'My Leave Calendar' }}</h2>
+      <span class="muted">{{ calendarTitle }}</span>
+    </div>
+    <p class="cal-note muted" *ngIf="error">Calendar unavailable — leave requests could not be loaded.</p>
+    <p class="cal-note muted" *ngIf="!error && total > requests.length">Showing days from the first {{ requests.length }} of {{ total }} requests — some days may be missing. Use the filters below to narrow the list.</p>
+    <div class="cal-weekdays" aria-hidden="true">
+      <span *ngFor="let w of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">{{ w }}</span>
+    </div>
+    <div class="cal-grid">
+      <span *ngFor="let b of calendarLeadBlanks" aria-hidden="true"></span>
+      <div class="cal-day" *ngFor="let d of calendarDays"
+           [class.is-today]="d.isToday" [class.is-weekoff]="d.isWeekOff" [class.is-holiday]="!!d.holidayName"
+           [title]="dayTitle(d)">
+        <span class="cal-num">{{ d.day }}</span>
+        <span class="cal-dots" *ngIf="d.leaves.length">
+          <span class="cal-dot dot-approved" *ngIf="hasLeaveStatus(d, 'Approved')" title="Approved leave"></span>
+          <span class="cal-dot dot-pending" *ngIf="hasLeaveStatus(d, 'Pending')" title="Pending leave"></span>
+        </span>
+        <span class="cal-holiday" *ngIf="d.holidayName" [title]="d.holidayName">{{ d.holidayName }}</span>
+      </div>
+    </div>
+    <p class="cal-legend">
+      <span><i class="cal-dot dot-approved"></i> Approved leave</span>
+      <span><i class="cal-dot dot-pending"></i> Pending leave</span>
+      <span><i class="cal-swatch swatch-holiday"></i> Holiday</span>
+      <span><i class="cal-swatch swatch-weekoff"></i> Week-off</span>
+    </p>
+  </section>
+
+  <div class="card">
+    <div class="card-head-row">
+      <h2 class="section-title accent-title-navy">{{ isAdmin ? 'Leave Requests' : 'My Requests' }}</h2>
+      <button class="btn btn-primary" (click)="exportCsv()" [disabled]="downloadingCsv">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13.5h10"/></svg>
+        {{ downloadingCsv ? 'Downloading...' : 'Export CSV' }}
+      </button>
+    </div>
+
+    <div class="chips" role="group" aria-label="Filter by status">
+      <button *ngFor="let s of statusOptions" type="button" class="chip" [class.chip-active]="statusFilter === s" [ngClass]="chipClass(s)" (click)="setFilter(s)">
+        {{ s === '' ? 'All' : s }}
+      </button>
+    </div>
+
+    <div class="toolbar">
+      <div class="field search-field">
+        <label for="search">Search</label>
+        <input id="search" name="searchQuery" [(ngModel)]="searchQuery" placeholder="Search employee, leave type or reason">
+      </div>
+      <div class="field type-field">
+        <label for="type">Leave type</label>
+        <select id="type" name="typeFilter" [(ngModel)]="typeFilter">
+          <option [ngValue]="0">All types</option>
+          <option *ngFor="let t of leaveTypes" [ngValue]="t.id">{{ t.name }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="loading" *ngIf="loading">Loading leave requests...</div>
+    <div class="table-wrap" *ngIf="!loading && filteredRequests.length">
+      <table class="table">
+        <colgroup *ngIf="isAdmin">
+          <col style="width: 17%">
+          <col style="width: 14%">
+          <col style="width: 11%">
+          <col style="width: 11%">
+          <col style="width: 5%">
+          <col style="width: 12%">
+          <col style="width: 10%">
+          <col style="width: 11%">
+          <col style="width: 9%">
+        </colgroup>
+        <colgroup *ngIf="!isAdmin">
+          <col style="width: 14%">
+          <col style="width: 14%">
+          <col style="width: 10%">
+          <col style="width: 6%">
+          <col style="width: 18%">
+          <col style="width: 11%">
+          <col style="width: 13%">
+          <col style="width: 14%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th *ngIf="isAdmin">Employee</th>
+            <th>Leave Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Days</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Reviewed By</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of filteredRequests">
+            <td *ngIf="isAdmin">
+              <span class="avatar-cell">
+                <span class="avatar" *ngIf="!requestPhoto(r)" aria-hidden="true">{{ initialsOf(r.employeeName) }}</span>
+                <img class="avatar-img" *ngIf="requestPhoto(r)" [src]="requestPhoto(r)" [alt]="'Photo of ' + r.employeeName">
+                <span class="emp-name" *ngIf="isAdmin">{{ r.employeeName }}</span>
+                <span class="emp-name muted" *ngIf="!isAdmin">You</span>
+              </span>
+            </td>
+            <td><span class="type-tag">{{ r.leaveTypeName }}</span></td>
+            <td>{{ r.startDate | date:'dd MMM yyyy' }}</td>
+            <td>{{ r.endDate | date:'dd MMM yyyy' }}</td>
+            <td>{{ r.days }}</td>
+            <td class="reason-cell" [title]="r.reason">{{ r.reason }}</td>
+            <td><span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span></td>
+            <td>
+              <span class="reviewer-name" *ngIf="r.reviewedByName">{{ r.reviewedByName }}</span><span *ngIf="!r.reviewedByName">—</span>
+              <div class="review-comments" *ngIf="r.reviewComments" [title]="r.reviewComments">{{ r.reviewComments }}</div>
+            </td>
+            <td>
+              <div class="action-btns" *ngIf="isAdmin && r.status === 'Pending'">
+                <button class="btn btn-sm btn-approve" (click)="openReview(r, 'approve')">Approve</button>
+                <button class="btn btn-sm btn-danger" (click)="openReview(r, 'reject')">Reject</button>
+              </div>
+              <button class="btn btn-sm btn-secondary" *ngIf="!isAdmin && r.status === 'Pending'" (click)="cancel(r.id)">Cancel</button>
+              <span class="muted" *ngIf="r.status !== 'Pending'">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="leave-mobile-list" *ngIf="!loading && filteredRequests.length">
+      <article class="leave-m-card" *ngFor="let r of filteredRequests">
+        <div class="leave-m-top">
+          <span class="avatar-cell">
+            <span class="avatar" *ngIf="!requestPhoto(r)" aria-hidden="true">{{ initialsOf(r.employeeName) }}</span>
+            <img class="avatar-img" *ngIf="requestPhoto(r)" [src]="requestPhoto(r)" [alt]="'Photo of ' + r.employeeName">
+            <span class="emp-name">{{ isAdmin ? r.employeeName : 'You' }}</span>
+          </span>
+          <span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span>
+        </div>
+        <div class="leave-m-meta">
+          <span class="type-tag">{{ r.leaveTypeName }}</span>
+          <span class="leave-m-dates">{{ r.startDate | date:'dd MMM yyyy' }} – {{ r.endDate | date:'dd MMM yyyy' }}</span>
+          <span class="leave-m-days">{{ r.days }} day{{ r.days === 1 ? '' : 's' }}</span>
+        </div>
+        <p class="leave-m-reason">{{ r.reason }}</p>
+        <p class="leave-m-review muted" *ngIf="r.reviewedByName">Reviewed by {{ r.reviewedByName }}<span *ngIf="r.reviewComments"> — {{ r.reviewComments }}</span></p>
+        <div class="leave-m-actions" *ngIf="isAdmin && r.status === 'Pending'">
+          <button class="btn btn-sm btn-approve" (click)="openReview(r, 'approve')">Approve</button>
+          <button class="btn btn-sm btn-danger" (click)="openReview(r, 'reject')">Reject</button>
+        </div>
+        <div class="leave-m-actions" *ngIf="!isAdmin && r.status === 'Pending'">
+          <button class="btn btn-sm btn-secondary" (click)="cancel(r.id)">Cancel request</button>
+        </div>
+      </article>
+    </div>
+    <div class="empty-state" *ngIf="!loading && !requests.length && !statusFilter">
+      <p>No leave requests yet.</p>
+      <button class="btn btn-primary" *ngIf="!isAdmin" (click)="showForm = true">Apply for Leave</button>
+    </div>
+    <div class="empty-state" *ngIf="!loading && !requests.length && statusFilter">
+      <p>No requests with this status.</p>
+      <button class="btn btn-secondary" (click)="clearFilters()">Clear filter</button>
+    </div>
+    <div class="empty-state" *ngIf="!loading && requests.length && !filteredRequests.length">
+      <p>No requests match your search.</p>
+      <button class="btn btn-secondary" (click)="searchQuery = ''; typeFilter = 0">Clear search</button>
+    </div>
+
+    <div class="pager" *ngIf="totalPages > 1">
+      <button class="btn btn-sm btn-secondary" (click)="prevPage()" [disabled]="page <= 1">Previous</button>
+      <span>Page {{ page }} of {{ totalPages }}</span>
+      <button class="btn btn-sm btn-secondary" (click)="nextPage()" [disabled]="page >= totalPages">Next</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="reviewRequest" (click)="closeReview()">
+    <div class="modal card anim-modal-in" role="dialog" aria-modal="true" aria-label="Review leave request" (click)="$event.stopPropagation()">
+      <h2>{{ reviewAction === 'approve' ? 'Approve leave request' : 'Reject leave request' }}</h2>
+      <p class="muted review-summary" *ngIf="reviewRequest">
+        <span class="avatar-cell review-who">
+          <span class="avatar" *ngIf="!requestPhoto(reviewRequest)" aria-hidden="true">{{ initialsOf(reviewRequest.employeeName) }}</span>
+          <img class="avatar-img" *ngIf="requestPhoto(reviewRequest)" [src]="requestPhoto(reviewRequest)" [alt]="'Photo of ' + reviewRequest.employeeName">
+          <span>{{ reviewRequest.employeeName }} · {{ reviewRequest.leaveTypeName }} ·
+        {{ reviewRequest.startDate | date:'dd MMM yyyy' }} – {{ reviewRequest.endDate | date:'dd MMM yyyy' }}
+        ({{ reviewRequest.days }} day{{ reviewRequest.days === 1 ? '' : 's' }})</span>
+        </span>
+      </p>
+      <div class="field">
+        <label for="reviewComments">{{ reviewAction === 'approve' ? 'Comment (optional)' : 'Reason for rejection *' }}</label>
+        <textarea id="reviewComments" name="reviewComments" [(ngModel)]="reviewComments" rows="3"
+          [placeholder]="reviewAction === 'approve' ? 'Shown to the employee (optional)' : 'Shown to the employee'"></textarea>
+        <div class="field-error" *ngIf="reviewAction === 'reject' && reviewComments !== '' && !reviewComments.trim()">A rejection reason is required.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" type="button" (click)="closeReview()" [disabled]="reviewBusy">Cancel</button>
+        <button class="btn btn-approve" type="button" *ngIf="reviewAction === 'approve'" (click)="confirmReview()" [disabled]="reviewBusy">{{ reviewBusy ? 'Approving...' : 'Approve' }}</button>
+        <button class="btn btn-danger" type="button" *ngIf="reviewAction === 'reject'" (click)="confirmReview()" [disabled]="reviewBusy">{{ reviewBusy ? 'Rejecting...' : 'Reject' }}</button>
+      </div>
+    </div>
+  </div>
+</div>

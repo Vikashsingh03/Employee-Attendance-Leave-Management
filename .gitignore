@@ -1,0 +1,23 @@
+# .NET build outputs
+**/bin/
+**/obj/
+
+# SQLite databases (runtime data, recreated + re-seeded on first run)
+*.db
+*.db-shm
+*.db-wal
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Visual Studio / VS Code user files
+.vs/
+*.user
+
+# Secrets / local config
+.env
+
+# Uploaded profile photos (runtime data, served from wwwroot/uploads/)
+wwwroot/uploads/

@@ -1,0 +1,124 @@
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Holidays</h1>
+      <p>Company holidays for {{ year }}.</p>
+    </div>
+    <div class="page-header-actions">
+      <div class="field year-field">
+        <label for="year">Year</label>
+        <select id="year" name="year" [(ngModel)]="year" (change)="onYear()">
+          <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" *ngIf="isAdmin" (click)="openAdd()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Add Holiday
+      </button>
+    </div>
+  </div>
+
+  <div class="alert alert-error" *ngIf="error"><span>{{ error }}</span><button class="btn btn-sm btn-secondary" (click)="load()">Retry</button></div>
+
+  <div class="card form-card" *ngIf="isAdmin && formOpen">
+    <h2>{{ editingId === null ? 'Add Holiday' : 'Edit Holiday' }}</h2>
+    <div class="alert alert-error alert-inline" *ngIf="formError">{{ formError }}</div>
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <div class="field">
+          <label for="h-name">Holiday name *</label>
+          <input id="h-name" name="name" [(ngModel)]="name" #hNameField="ngModel" placeholder="e.g. Diwali" [class.input-error]="hNameField.touched && !name.trim()" [attr.aria-invalid]="hNameField.touched && !name.trim()">
+          <div class="field-error" *ngIf="hNameField.touched && !name.trim()">Holiday name is required.</div>
+        </div>
+        <div class="field">
+          <label for="h-date">Date *</label>
+          <input id="h-date" type="date" name="date" [(ngModel)]="date" #hDateField="ngModel" [class.input-error]="hDateField.touched && !date" [attr.aria-invalid]="hDateField.touched && !date">
+          <div class="field-error" *ngIf="hDateField.touched && !date">Date is required.</div>
+        </div>
+        <div class="field field-full">
+          <label for="h-desc">Description</label>
+          <textarea id="h-desc" name="description" [(ngModel)]="description" rows="2" placeholder="Optional note about this holiday"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit" [disabled]="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
+        <button class="btn btn-secondary" type="button" (click)="cancelForm()" [disabled]="saving">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card upcoming-card" *ngIf="!loading && upcomingHoliday">
+    <div class="upcoming-date" aria-hidden="true">
+      <span class="upcoming-day">{{ upcomingHoliday.date | date:'d' }}</span>
+      <span class="upcoming-month">{{ upcomingHoliday.date | date:'MMM yyyy' }}</span>
+    </div>
+    <div class="upcoming-body">
+      <span class="upcoming-eyebrow">Next holiday · {{ upcomingInDays === 0 ? 'Today' : upcomingInDays === 1 ? 'Tomorrow' : 'in ' + upcomingInDays + ' days' }}</span>
+      <h2>{{ upcomingHoliday.name }}</h2>
+      <p>{{ upcomingHoliday.date | date:'EEEE, dd MMMM yyyy' }}<span *ngIf="upcomingHoliday.description"> · {{ upcomingHoliday.description }}</span></p>
+    </div>
+    <span class="badge badge-upcoming">Upcoming</span>
+  </div>
+
+  <div class="loading" *ngIf="loading">Loading holidays...</div>
+
+  <div class="view-toggle no-print" *ngIf="!loading && holidays.length" role="group" aria-label="Holiday view">
+    <button class="btn btn-sm" type="button" [class.btn-primary]="viewMode === 'list'" [class.btn-secondary]="viewMode !== 'list'" (click)="viewMode = 'list'">List</button>
+    <button class="btn btn-sm" type="button" [class.btn-primary]="viewMode === 'calendar'" [class.btn-secondary]="viewMode !== 'calendar'" (click)="viewMode = 'calendar'">Calendar</button>
+  </div>
+
+  <section class="card calendar-card" *ngIf="!loading && holidays.length && viewMode === 'calendar'" aria-label="Holiday calendar">
+    <div class="calendar-head">
+      <button class="btn btn-sm btn-secondary" type="button" (click)="prevCalMonth()" [disabled]="calAtYearStart" aria-label="Previous month"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg></button>
+      <h2>{{ calMonthLabel }}</h2>
+      <button class="btn btn-sm btn-secondary" type="button" (click)="nextCalMonth()" [disabled]="calAtYearEnd" aria-label="Next month"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg></button>
+    </div>
+    <table class="calendar-grid">
+      <thead><tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let week of calendarWeeks">
+          <td *ngFor="let cell of week" [class.cal-empty]="!cell" [class.cal-today]="cell && isTodayCell(calMonth.getFullYear(), calMonth.getMonth(), cell.day)" [class.cal-holiday]="cell && cell.holidays.length">
+            <ng-container *ngIf="cell">
+              <span class="cal-day">{{ cell.day }}</span>
+              <span class="cal-chip" *ngFor="let h of cell.holidays" [title]="h.name">{{ h.name }}</span>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <ng-container *ngIf="!loading && holidays.length && viewMode === 'list'">
+    <section class="month-group" *ngFor="let g of monthGroups; let gi = index" [attr.aria-label]="'Holidays in ' + g.label">
+      <div class="month-head">
+        <h2>{{ g.label }}</h2>
+        <span class="muted list-count">{{ g.holidays.length }} {{ g.holidays.length === 1 ? 'holiday' : 'holidays' }}</span>
+      </div>
+      <div class="holiday-grid">
+        <article class="holiday-card card--lift" *ngFor="let h of g.holidays; let i = index" [ngClass]="'hol-tint-' + paletteIndex(gi, i)" [class.is-upcoming]="h.id === nextUpcomingId">
+          <div class="holiday-date" aria-hidden="true">
+            <span class="holiday-day">{{ h.date | date:'d' }}</span>
+            <span class="holiday-month">{{ h.date | date:'MMM' }}</span>
+          </div>
+          <div class="holiday-body">
+            <h3>{{ h.name }}
+              <span class="badge badge-upcoming" *ngIf="h.id === nextUpcomingId">Upcoming</span>
+            </h3>
+            <p class="muted">{{ h.date | date:'EEEE' }} · {{ h.date | date:'dd MMM yyyy' }}</p>
+            <p class="holiday-desc" *ngIf="h.description">{{ h.description }}</p>
+          </div>
+          <div class="row-actions" *ngIf="isAdmin">
+            <button class="btn btn-sm btn-secondary" (click)="openEdit(h)">Edit</button>
+            <button class="btn btn-sm btn-danger-outline" (click)="remove(h)">Delete</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="empty-state card" *ngIf="!loading && !holidays.length">
+    <svg class="empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <p>No holidays listed for this year.</p>
+    <button class="btn btn-primary" *ngIf="isAdmin" (click)="openAdd()">Add Holiday</button>
+  </div>
+</div>

@@ -1,0 +1,351 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Attendance</h1>
+      <p class="page-header__subtitle" *ngIf="isAdmin">View a day's records, mark attendance for any employee, and export the monthly CSV.</p>
+      <p class="page-header__subtitle" *ngIf="!isAdmin">Check in and out, and see your monthly attendance.</p>
+    </div>
+    <div class="page-date">
+      <span class="page-date-label">Today</span>
+      <strong>{{ todayDate | date:'EEEE, d MMMM yyyy' }}</strong>
+    </div>
+  </header>
+
+  <div class="alert alert-error" *ngIf="error">
+    <span>{{ error }}</span>
+    <button class="btn btn-sm btn-secondary" type="button" (click)="isAdmin ? loadDay() : loadMine()">Retry</button>
+  </div>
+
+  <ng-container *ngIf="!isAdmin">
+    <section class="card hero-card" aria-label="Check in and out">
+      <div class="hero-main">
+        <div class="hero-who">
+          <span class="avatar avatar-xl" *ngIf="!myPhoto" aria-hidden="true">{{ myInitials() }}</span>
+          <img class="avatar-img avatar-xl" *ngIf="myPhoto" [src]="myPhoto" [alt]="'Photo of ' + myName">
+          <span class="hero-live" [ngClass]="'hero-live--' + heroState">
+            <span class="hero-dot" aria-hidden="true"></span>
+            <span *ngIf="heroState === 'none'">Not checked in</span>
+            <span *ngIf="heroState === 'in'">Checked in</span>
+            <span *ngIf="heroState === 'out'">Checked out</span>
+            <span *ngIf="heroState === 'marked'">{{ today ? statusLabel(today.status) : '' }}</span>
+          </span>
+        </div>
+        <div class="hero-status">
+          <span class="hero-eyebrow">Today</span>
+          <h2 class="hero-status-text" *ngIf="heroState === 'none'">Not checked in</h2>
+          <h2 class="hero-status-text" *ngIf="heroState === 'in'">Checked in</h2>
+          <h2 class="hero-status-text" *ngIf="heroState === 'out'">Checked out</h2>
+          <h2 class="hero-status-text" *ngIf="heroState === 'marked'">{{ today ? statusLabel(today.status) : '' }}</h2>
+          <p class="muted" *ngIf="heroState === 'none'">You haven&rsquo;t checked in yet today. Your check-in time will appear here.</p>
+          <p class="muted" *ngIf="heroState === 'in'">Checked in at {{ shortTime(today?.checkInTime) }}. Don&rsquo;t forget to check out before you leave.</p>
+          <p class="muted" *ngIf="heroState === 'out'">Checked out at {{ shortTime(today?.checkOutTime) }}. See you tomorrow.</p>
+          <p class="muted" *ngIf="heroState === 'marked'">No check-in recorded for today.
+            <span class="badge" [ngClass]="today ? statusClass(today.status) : ''" *ngIf="today">{{ statusLabel(today.status) }}</span>
+          </p>
+          <div class="hero-times" *ngIf="today?.checkInTime || today?.checkOutTime">
+            <div class="hero-time">
+              <span>Check-in</span>
+              <strong>{{ shortTime(today?.checkInTime) }}</strong>
+            </div>
+            <div class="hero-time">
+              <span>Check-out</span>
+              <strong>{{ shortTime(today?.checkOutTime) }}</strong>
+            </div>
+          </div>
+        </div>
+        <div class="hero-clock" aria-label="Current time">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <div class="hero-clock-time">{{ now | date:'HH:mm:ss' }}</div>
+          <div class="muted">{{ now | date:'EEEE, d MMMM yyyy' }}</div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-success btn-hero" type="button" (click)="checkIn()" [disabled]="checking || (today?.checkInTime ? true : false)">
+          <span class="btn-spinner" *ngIf="checking && checkingAction === 'in'" aria-hidden="true"></span>
+          <svg *ngIf="!(checking && checkingAction === 'in')" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+          {{ checking && checkingAction === 'in' ? 'Checking in…' : 'Check in' }}
+        </button>
+        <button class="btn btn-secondary btn-hero" type="button" (click)="checkOut()" [disabled]="checking || !today?.checkInTime || !!today?.checkOutTime">
+          <span class="btn-spinner" *ngIf="checking && checkingAction === 'out'" aria-hidden="true"></span>
+          <svg *ngIf="!(checking && checkingAction === 'out')" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          {{ checking && checkingAction === 'out' ? 'Checking out…' : 'Check out' }}
+        </button>
+        <span class="muted hero-hint" *ngIf="heroState === 'out'">You&rsquo;re all set for today.</span>
+        <span class="muted hero-hint" *ngIf="heroState === 'in'">Checked in &mdash; check out when your day ends.</span>
+      </div>
+    </section>
+
+    <section class="card" aria-label="My attendance this month">
+      <div class="card__header">
+        <h2 class="card__title">My attendance</h2>
+        <span class="avatar-cell card__who">
+          <span class="avatar" *ngIf="!myPhoto" aria-hidden="true">{{ myInitials() }}</span>
+          <img class="avatar-img" *ngIf="myPhoto" [src]="myPhoto" [alt]="'Photo of ' + myName">
+          <span class="emp-name">{{ myName }}</span>
+        </span>
+        <div class="field field-inline">
+          <label for="month">Month</label>
+          <input id="month" type="month" name="month" [(ngModel)]="month" (change)="loadMine()">
+        </div>
+      </div>
+      <div class="stat-grid" *ngIf="!loading">
+        <div class="stat-card stat-card--green card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Present</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ summary.present }}</div>
+          <div class="stat-card__context">days this month</div>
+        </div>
+        <div class="stat-card stat-card--rose card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Absent</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ summary.absent }}</div>
+          <div class="stat-card__context">days this month</div>
+        </div>
+        <div class="stat-card stat-card--blue card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Leave</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ summary.leave }}</div>
+          <div class="stat-card__context">days this month</div>
+        </div>
+        <div class="stat-card stat-card--indigo card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Half Day</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ summary.halfDay }}</div>
+          <div class="stat-card__context">days this month</div>
+        </div>
+      </div>
+      <div class="loading" *ngIf="loading">Loading attendance...</div>
+      <div class="table-wrap" *ngIf="!loading && myRecords.length">
+        <table class="table">
+          <thead><tr><th>Date</th><th>Status</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Remarks</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let r of myRecords">
+              <td>{{ r.date | date:'dd MMM yyyy' }}</td>
+              <td><span class="badge" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
+              <td>{{ shortTime(r.checkInTime) }} <span class="badge badge-late" *ngIf="isLate(r)" title="Checked in after 10:00 AM">Late</span></td>
+              <td>{{ shortTime(r.checkOutTime) }}</td>
+              <td>
+                <span class="hours-cell" *ngIf="effectiveHours(r) !== null">
+                  <span class="hours-bar" aria-hidden="true"><span class="hours-bar__fill" [style.width.%]="hoursBarWidth(r)"></span></span>
+                  <span class="hours-label">{{ effectiveHoursLabel(r) }}</span>
+                </span>
+                <span class="hours-label hours-label--muted" *ngIf="effectiveHours(r) === null">{{ effectiveHoursLabel(r) }}</span>
+              </td>
+              <td>{{ r.remarks || '–' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="att-mobile-list" *ngIf="!loading && myRecords.length">
+        <article class="att-m-card" *ngFor="let r of myRecords">
+          <div class="att-m-top">
+            <span class="att-m-date">{{ r.date | date:'dd MMM yyyy' }}</span>
+            <span class="badge" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+          </div>
+          <div class="att-m-times">
+            <span>In <strong>{{ shortTime(r.checkInTime) }}</strong></span>
+            <span class="badge badge-late" *ngIf="isLate(r)" title="Checked in after 10:00 AM">Late</span>
+            <span>Out <strong>{{ shortTime(r.checkOutTime) }}</strong></span>
+          </div>
+          <div class="att-m-hours">
+            <span class="hours-cell" *ngIf="effectiveHours(r) !== null">
+              <span class="hours-bar" aria-hidden="true"><span class="hours-bar__fill" [style.width.%]="hoursBarWidth(r)"></span></span>
+              <span class="hours-label">{{ effectiveHoursLabel(r) }}</span>
+            </span>
+            <span class="hours-label hours-label--muted" *ngIf="effectiveHours(r) === null">{{ effectiveHoursLabel(r) }}</span>
+          </div>
+          <p class="att-m-remarks muted" *ngIf="r.remarks">{{ r.remarks }}</p>
+        </article>
+      </div>
+      <p class="table-note" *ngIf="!loading && myRecords.length">Late = check-in after 10:00 AM. Hours bar is scaled to a full 8-hour day.</p>
+      <div class="empty-state" *ngIf="!loading && !myRecords.length">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <p>No attendance records for this month.</p>
+        <p class="muted">Try another month, or check in today to start your record.</p>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isAdmin">
+    <section class="card mark-card" aria-label="Mark attendance">
+      <div class="card__header">
+        <h2 class="card__title">Mark Attendance</h2>
+      </div>
+      <div class="alert alert-error" *ngIf="markError">{{ markError }}</div>
+      <form (ngSubmit)="mark()">
+        <div class="form-grid">
+          <div class="field">
+            <label for="m-emp">Employee *</label>
+            <select id="m-emp" name="markEmployeeId" [(ngModel)]="markEmployeeId" #mEmpField="ngModel">
+              <option [ngValue]="0">Select employee</option>
+              <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }} ({{ e.employeeCode }})</option>
+            </select>
+            <div class="field-error" *ngIf="mEmpField.touched && !markEmployeeId">Please select an employee.</div>
+          </div>
+          <div class="field">
+            <label for="m-date">Date *</label>
+            <input id="m-date" type="date" name="markDate" [(ngModel)]="markDate" #mDateField="ngModel">
+            <span class="date-hint" *ngIf="markDate">{{ formatDate(markDate) }}</span>
+            <div class="field-error" *ngIf="mDateField.touched && !markDate">Date is required.</div>
+          </div>
+          <div class="field">
+            <label for="m-status">Status *</label>
+            <select id="m-status" name="markStatus" [(ngModel)]="markStatus">
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Leave">Leave</option>
+              <option value="HalfDay">Half Day</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-remarks">Remarks</label>
+            <input id="m-remarks" name="markRemarks" [(ngModel)]="markRemarks">
+          </div>
+          <div class="field">
+            <label for="m-in">Check-in time</label>
+            <input id="m-in" type="time" name="markIn" [(ngModel)]="markIn">
+          </div>
+          <div class="field">
+            <label for="m-out">Check-out time</label>
+            <input id="m-out" type="time" name="markOut" [(ngModel)]="markOut">
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit" [disabled]="marking">{{ marking ? 'Saving...' : 'Mark Attendance' }}</button>
+      </form>
+    </section>
+
+    <section class="card" aria-label="Attendance records">
+      <div class="card__header">
+        <h2 class="card__title">Records</h2>
+        <span class="muted" *ngIf="!loading && dayRecords.length">{{ dayRecords.length }} record{{ dayRecords.length === 1 ? '' : 's' }}</span>
+      </div>
+      <div class="toolbar">
+        <div class="field">
+          <label for="day">Date</label>
+          <input id="day" type="date" name="date" [(ngModel)]="date" (change)="loadDay()">
+          <span class="date-hint" *ngIf="date">{{ formatDate(date) }}</span>
+        </div>
+        <div class="field">
+          <label for="emp">Employee</label>
+          <select id="emp" name="employeeFilter" [(ngModel)]="employeeFilter" (change)="loadDay()">
+            <option [ngValue]="0">All employees</option>
+            <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="csv-month">Export month</label>
+          <input id="csv-month" type="month" name="csvMonth" [(ngModel)]="csvMonth">
+        </div>
+        <button class="btn btn-primary" type="button" (click)="exportCsv()" [disabled]="exporting || !csvMonth">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          {{ exporting ? 'Exporting...' : 'Export CSV' }}
+        </button>
+      </div>
+      <div class="stat-grid" *ngIf="!loading && dayRecords.length">
+        <div class="stat-card stat-card--green card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Present</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ daySummary.present }}</div>
+          <div class="stat-card__context">records for this day</div>
+        </div>
+        <div class="stat-card stat-card--rose card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Absent</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ daySummary.absent }}</div>
+          <div class="stat-card__context">records for this day</div>
+        </div>
+        <div class="stat-card stat-card--blue card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Leave</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ daySummary.leave }}</div>
+          <div class="stat-card__context">records for this day</div>
+        </div>
+        <div class="stat-card stat-card--indigo card--lift">
+          <div class="stat-card__top">
+            <span class="stat-card__label">Half Day</span>
+            <span class="stat-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          </div>
+          <div class="stat-card__value">{{ daySummary.halfDay }}</div>
+          <div class="stat-card__context">records for this day</div>
+        </div>
+      </div>
+      <div class="loading" *ngIf="loading">Loading records...</div>
+      <div class="table-wrap" *ngIf="!loading && dayRecords.length">
+        <table class="table">
+          <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Remarks</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let r of dayRecords">
+              <td>
+                <span class="avatar-cell">
+                  <span class="avatar" *ngIf="!recordPhoto(r)" aria-hidden="true">{{ initialsOf(r.employeeName) }}</span>
+                  <img class="avatar-img" *ngIf="recordPhoto(r)" [src]="recordPhoto(r)" [alt]="'Photo of ' + r.employeeName">
+                  <span class="emp-name">{{ r.employeeName }}</span>
+                </span>
+              </td>
+              <td>{{ r.date | date:'dd MMM yyyy' }}</td>
+              <td><span class="badge" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span></td>
+              <td>{{ shortTime(r.checkInTime) }} <span class="badge badge-late" *ngIf="isLate(r)" title="Checked in after 10:00 AM">Late</span></td>
+              <td>{{ shortTime(r.checkOutTime) }}</td>
+              <td>
+                <span class="hours-cell" *ngIf="effectiveHours(r) !== null">
+                  <span class="hours-bar" aria-hidden="true"><span class="hours-bar__fill" [style.width.%]="hoursBarWidth(r)"></span></span>
+                  <span class="hours-label">{{ effectiveHoursLabel(r) }}</span>
+                </span>
+                <span class="hours-label hours-label--muted" *ngIf="effectiveHours(r) === null">{{ effectiveHoursLabel(r) }}</span>
+              </td>
+              <td>{{ r.remarks || '–' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="att-mobile-list" *ngIf="!loading && dayRecords.length">
+        <article class="att-m-card" *ngFor="let r of dayRecords">
+          <div class="att-m-top">
+            <span class="avatar-cell">
+              <span class="avatar" *ngIf="!recordPhoto(r)" aria-hidden="true">{{ initialsOf(r.employeeName) }}</span>
+              <img class="avatar-img" *ngIf="recordPhoto(r)" [src]="recordPhoto(r)" [alt]="'Photo of ' + r.employeeName">
+              <span class="emp-name">{{ r.employeeName }}</span>
+            </span>
+            <span class="badge" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+          </div>
+          <div class="att-m-meta">
+            <span class="att-m-date">{{ r.date | date:'dd MMM yyyy' }}</span>
+          </div>
+          <div class="att-m-times">
+            <span>In <strong>{{ shortTime(r.checkInTime) }}</strong></span>
+            <span class="badge badge-late" *ngIf="isLate(r)" title="Checked in after 10:00 AM">Late</span>
+            <span>Out <strong>{{ shortTime(r.checkOutTime) }}</strong></span>
+          </div>
+          <div class="att-m-hours">
+            <span class="hours-cell" *ngIf="effectiveHours(r) !== null">
+              <span class="hours-bar" aria-hidden="true"><span class="hours-bar__fill" [style.width.%]="hoursBarWidth(r)"></span></span>
+              <span class="hours-label">{{ effectiveHoursLabel(r) }}</span>
+            </span>
+            <span class="hours-label hours-label--muted" *ngIf="effectiveHours(r) === null">{{ effectiveHoursLabel(r) }}</span>
+          </div>
+          <p class="att-m-remarks muted" *ngIf="r.remarks">{{ r.remarks }}</p>
+        </article>
+      </div>
+      <p class="table-note" *ngIf="!loading && dayRecords.length">Late = check-in after 10:00 AM. Hours bar is scaled to a full 8-hour day.</p>
+      <div class="empty-state" *ngIf="!loading && !dayRecords.length">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <p>No attendance records for this day.</p>
+        <p class="muted">Try another date or employee, or mark attendance above.</p>
+      </div>
+    </section>
+  </ng-container>
+</div>

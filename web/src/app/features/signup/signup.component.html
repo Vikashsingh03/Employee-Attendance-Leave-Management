@@ -1,0 +1,229 @@
+<div class="auth-split anim-slide-up">
+  <aside class="auth-brand">
+    <div class="auth-brand-inner">
+      <div class="auth-brand-body">
+        <div class="auth-brand-mark">
+          <span class="auth-brand-logo" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+              <path d="M9 16l2 2 4-4" />
+            </svg>
+          </span>
+          <span class="auth-brand-name">Attendance &amp; Leave Manager</span>
+        </div>
+
+        <p class="auth-brand-eyebrow">Attendance &middot; Leave &middot; Holidays</p>
+        <h2 class="auth-brand-headline">Join your team in minutes.</h2>
+        <p class="auth-brand-sub">Create your account and start tracking attendance and leave from day one — your department, balances and holidays are ready as soon as you sign in.</p>
+
+        <ul class="auth-brand__points">
+          <li>
+            <span class="auth-feature-icon auth-feature-icon--violet" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
+            <span>Check in and out daily, from any device</span>
+          </li>
+          <li>
+            <span class="auth-feature-icon auth-feature-icon--violet" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
+            <span>Request leave and track every approval</span>
+          </li>
+          <li>
+            <span class="auth-feature-icon auth-feature-icon--violet" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
+            <span>Holidays, balances and reports in one view</span>
+          </li>
+        </ul>
+
+        <div class="auth-brand-visual" aria-hidden="true">
+          <div class="auth-visual-card">
+            <div class="auth-visual-head">
+              <span class="auth-visual-title">Your team at a glance</span>
+            </div>
+            <div class="auth-visual-person">
+              <span class="auth-visual-avatar auth-visual-avatar--violet">AM</span>
+              <span class="auth-visual-who"><strong>Arjun Mehta</strong><span>Engineering &middot; Senior Software Developer</span></span>
+            </div>
+            <div class="auth-visual-person">
+              <span class="auth-visual-avatar auth-visual-avatar--teal">PV</span>
+              <span class="auth-visual-who"><strong>Priya Verma</strong><span>Sales &middot; Sales Executive</span></span>
+            </div>
+            <div class="auth-visual-person">
+              <span class="auth-visual-avatar auth-visual-avatar--amber">RK</span>
+              <span class="auth-visual-who"><strong>Rohit Kumar</strong><span>Finance &middot; Accountant</span></span>
+            </div>
+            <div class="auth-visual-foot">
+              <span>Sign in to see who&rsquo;s in today.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-brand-stats">
+          <div class="auth-brand-stat"><strong>{{ employeeCount ?? '&ndash;' }}</strong><span>Employees</span></div>
+          <div class="auth-brand-stat"><strong>5</strong><span>Departments</span></div>
+          <div class="auth-brand-stat"><strong>13</strong><span>Holidays</span></div>
+        </div>
+
+        <p class="auth-brand-quote">&ldquo;New joiners are up and running on day one.&rdquo; <span>&mdash; HR Manager, Attendance &amp; Leave Manager</span></p>
+
+        <p class="auth-brand-trust">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Secure sign-in &middot; Role-based access for Admins and Employees
+        </p>
+      </div>
+
+      <div class="auth-brand-foot">
+        <span class="auth-accent-bar" aria-hidden="true"></span>
+        <p class="auth-brand__foot">Employee Attendance &amp; Leave Management System</p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="auth-form-wrap">
+    <div class="auth-form-card">
+      <h1 class="auth-title">Create your workspace account</h1>
+      <p class="auth-subtitle">Set up your employee profile in under a minute. Your admin approves your access.</p>
+
+      <div class="alert alert-error" *ngIf="error" role="alert">{{ error }}</div>
+
+      <form (ngSubmit)="submit()" novalidate>
+        <div class="al-field">
+          <label class="al-label" for="fullName">Full name</label>
+          <input id="fullName" class="al-input" type="text" name="fullName"
+                 [(ngModel)]="fullName" #fullNameField="ngModel"
+                 placeholder="e.g. Rahul Sharma" autocomplete="name" required
+                 [attr.aria-invalid]="(submitted || fullNameField.touched) && !fullName.trim()"
+                 [class.al-input--error]="(submitted || fullNameField.touched) && !fullName.trim()">
+          <div class="al-field-error" *ngIf="(submitted || fullNameField.touched) && !fullName.trim()">
+            Full name is required.
+          </div>
+        </div>
+
+        <div class="al-field">
+          <label class="al-label" for="email">Work email</label>
+          <input id="email" class="al-input" type="email" name="email"
+                 [(ngModel)]="email" #emailField="ngModel"
+                 placeholder="you@company.com" autocomplete="email" required
+                 [attr.aria-invalid]="(submitted || emailField.touched) && (!email.trim() || !emailValid)"
+                 [class.al-input--error]="(submitted || emailField.touched) && (!email.trim() || !emailValid)">
+          <div class="al-field-error" *ngIf="(submitted || emailField.touched) && !email.trim()">
+            Work email is required.
+          </div>
+          <div class="al-field-error" *ngIf="(submitted || emailField.touched) && email.trim() && !emailValid">
+            Enter a valid email address, e.g. you&#64;company.com.
+          </div>
+        </div>
+
+        <div class="al-field">
+          <label class="al-label" for="password">Password</label>
+          <div class="auth-password-wrap">
+            <input id="password" class="al-input" [type]="showPassword ? 'text' : 'password'"
+                   name="password" [(ngModel)]="password" #passwordField="ngModel"
+                   placeholder="Create a password" autocomplete="new-password" required
+                   [attr.aria-invalid]="(submitted || passwordField.touched) && (!password || !passwordValid)"
+                   [class.al-input--error]="(submitted || passwordField.touched) && (!password || !passwordValid)">
+            <button class="btn btn-ghost btn-icon btn-sm auth-password-toggle" type="button"
+                    (click)="togglePassword()"
+                    [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+                    [attr.aria-pressed]="showPassword">
+              <svg *ngIf="!showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <svg *ngIf="showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            </button>
+          </div>
+          <div class="pw-meter" *ngIf="password" [class]="'pw-meter pw-meter--' + passwordStrength" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <p class="al-help-text" *ngIf="password">Password strength: <strong>{{ passwordStrengthLabel }}</strong></p>
+          <ul class="pw-checklist" aria-label="Password requirements">
+            <li [class.pw-checklist--pass]="hasMinLength"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg> At least 8 characters</li>
+            <li [class.pw-checklist--pass]="hasUppercase"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg> One uppercase letter</li>
+            <li [class.pw-checklist--pass]="hasNumber"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg> One number</li>
+          </ul>
+          <div class="al-field-error" *ngIf="(submitted || passwordField.touched) && !password">
+            Password is required.
+          </div>
+          <div class="al-field-error" *ngIf="(submitted || passwordField.touched) && password && !passwordValid">
+            Password must be at least 8 characters and include an uppercase letter and a number.
+          </div>
+        </div>
+
+        <div class="al-field">
+          <label class="al-label" for="confirmPassword">Confirm password</label>
+          <div class="auth-password-wrap">
+            <input id="confirmPassword" class="al-input" [type]="showConfirmPassword ? 'text' : 'password'"
+                   name="confirmPassword" [(ngModel)]="confirmPassword" #confirmField="ngModel"
+                   placeholder="Repeat your password" autocomplete="new-password" required
+                   [attr.aria-invalid]="(submitted || confirmField.touched) && (!confirmPassword || !passwordsMatch)"
+                   [class.al-input--error]="(submitted || confirmField.touched) && (!confirmPassword || !passwordsMatch)">
+            <button class="btn btn-ghost btn-icon btn-sm auth-password-toggle" type="button"
+                    (click)="toggleConfirmPassword()"
+                    [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'"
+                    [attr.aria-pressed]="showConfirmPassword">
+              <svg *ngIf="!showConfirmPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <svg *ngIf="showConfirmPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            </button>
+          </div>
+          <div class="al-field-error" *ngIf="(submitted || confirmField.touched) && !confirmPassword">
+            Please confirm your password.
+          </div>
+          <div class="al-field-error" *ngIf="(submitted || confirmField.touched) && confirmPassword && !passwordsMatch">
+            Passwords do not match.
+          </div>
+        </div>
+
+        <div class="al-field">
+          <label class="al-label" for="department">Department</label>
+          <select id="department" class="al-input" name="department"
+                  [(ngModel)]="departmentId" #departmentField="ngModel" required
+                  [disabled]="departmentsLoading"
+                  [attr.aria-invalid]="(submitted || departmentField.touched) && departmentId === null"
+                  [class.al-input--error]="(submitted || departmentField.touched) && departmentId === null">
+            <option [ngValue]="null" disabled>Select your department</option>
+            <option *ngFor="let dept of departments" [ngValue]="dept.id">{{ dept.name }}</option>
+          </select>
+          <div class="al-field-error" *ngIf="departmentsError">{{ departmentsError }}</div>
+          <div class="al-field-error" *ngIf="!departmentsError && (submitted || departmentField.touched) && departmentId === null">
+            Please select your department.
+          </div>
+        </div>
+        <p class="auth-role-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+          New accounts join as Employee. Admins upgrade roles.
+        </p>
+        <button class="btn btn-primary btn-block auth-submit" type="submit" [disabled]="loading">
+          {{ loading ? 'Creating account…' : 'Create account' }}
+        </button>
+        <p class="auth-trust-line">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Protected by JWT authentication. Your password is never stored in plain text.
+        </p>
+      </form>
+
+      <p class="auth-footer">Already have an account? <a routerLink="/login">Sign in</a></p>
+      <p class="auth-version"><span class="auth-version-badge">v5.0 &middot; Attendance &amp; Leave Manager</span></p>
+    </div>
+  </main>
+</div>

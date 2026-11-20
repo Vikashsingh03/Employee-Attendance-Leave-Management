@@ -1,0 +1,360 @@
+<div class="page dash">
+  <header class="welcome anim-in" style="--d:0ms">
+    <img class="avatar-img avatar-lg" *ngIf="myPhoto && !myPhotoFailed" [src]="myPhoto"
+         (error)="myPhotoFailed = true" [alt]="'Profile photo of ' + (currentUser?.fullName ?? 'you')">
+    <span class="avatar-fallback avatar-lg" *ngIf="!myPhoto || myPhotoFailed" [ngClass]="tintForName(currentUser?.fullName ?? '')" aria-hidden="true">{{ initials(currentUser?.fullName ?? '') }}</span>
+    <div class="welcome-text">
+      <h1>Welcome back, {{ firstName || 'there' }}</h1>
+      <p class="page-subtitle" *ngIf="isAdmin">Today's attendance and pending leave requests.</p>
+      <p class="page-subtitle" *ngIf="!isAdmin">Your attendance and leave for this month.</p>
+      <div class="welcome-meta" *ngIf="!loading && !error">
+        <span class="meta-chip" *ngIf="isAdmin && admin">{{ admin.pendingLeaveRequests }} pending approval{{ admin.pendingLeaveRequests === 1 ? '' : 's' }}</span>
+        <span class="meta-chip meta-chip--teal" *ngIf="isAdmin && admin">{{ admin.onLeaveToday }} on leave today</span>
+        <span class="meta-chip" *ngIf="!isAdmin && mine">{{ mine.myPendingRequests }} request{{ mine.myPendingRequests === 1 ? '' : 's' }} awaiting approval</span>
+      </div>
+    </div>
+    <div class="page-date">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>{{ today | date:'EEEE, d MMMM yyyy' }}</span>
+    </div>
+  </header>
+
+  <div *ngIf="loading" aria-busy="true">
+    <div class="stat-grid">
+      <div class="card stat-card skeleton" *ngFor="let s of [1,2,3,4,5,6]">
+        <div class="skeleton-line skeleton-line-short"></div>
+        <div class="skeleton-line skeleton-line-value"></div>
+        <div class="skeleton-line"></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="card skeleton-block"></div>
+      <div class="card skeleton-block"></div>
+    </div>
+  </div>
+
+  <div class="alert alert-error" *ngIf="!loading && error" role="alert">
+    <span>{{ error }}</span>
+    <button class="btn btn-sm btn-secondary" (click)="retry()">Retry</button>
+  </div>
+
+  <ng-container *ngIf="!loading && !error && isAdmin && admin">
+    <div class="stat-grid">
+      <div class="card stat-card tint-violet card--lift anim-in" style="--d:40ms">
+        <div class="stat-top">
+          <span class="stat-label">Total Employees</span>
+          <span class="stat-card__icon chip-solid chip-violet" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('totalEmployees', admin.totalEmployees) }}</div>
+        <div class="stat-context">Active across all departments</div>
+      </div>
+
+      <div class="card stat-card tint-teal card--lift anim-in" style="--d:90ms">
+        <div class="stat-top">
+          <span class="stat-label">Present Today</span>
+          <span class="stat-card__icon chip-solid chip-teal" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('presentToday', admin.presentToday) }}</div>
+        <div class="stat-context">of {{ admin.totalEmployees }} employees &middot; {{ share(admin.presentToday, admin.totalEmployees) | number:'1.0-0' }}% present</div>
+      </div>
+
+      <div class="card stat-card tint-rose card--lift anim-in" style="--d:140ms">
+        <div class="stat-top">
+          <span class="stat-label">Absent Today</span>
+          <span class="stat-card__icon chip-solid chip-rose" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('absentToday', admin.absentToday) }}</div>
+        <div class="stat-context">of {{ admin.totalEmployees }} employees &middot; {{ share(admin.absentToday, admin.totalEmployees) | number:'1.0-0' }}% absent</div>
+      </div>
+
+      <div class="card stat-card tint-blue card--lift anim-in" style="--d:190ms">
+        <div class="stat-top">
+          <span class="stat-label">On Leave Today</span>
+          <span class="stat-card__icon chip-solid chip-blue" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('onLeaveToday', admin.onLeaveToday) }}</div>
+        <div class="stat-context">of {{ admin.totalEmployees }} employees &middot; {{ share(admin.onLeaveToday, admin.totalEmployees) | number:'1.0-0' }}% away</div>
+      </div>
+
+      <div class="card stat-card tint-amber card--lift anim-in" style="--d:240ms">
+        <div class="stat-top">
+          <span class="stat-label">Pending Requests</span>
+          <span class="stat-card__icon chip-solid chip-amber" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('pendingRequests', admin.pendingLeaveRequests) }}</div>
+        <div class="stat-context">Awaiting your review</div>
+      </div>
+
+      <div class="card stat-card tint-green card--lift anim-in" style="--d:290ms">
+        <div class="stat-top">
+          <span class="stat-label">Approved This Month</span>
+          <span class="stat-card__icon chip-solid chip-green" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('approvedMonth', admin.leavesApprovedThisMonth) }}</div>
+        <div class="stat-context">in {{ today | date:'MMMM yyyy' }}</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card chart-card anim-in" style="--d:300ms">
+        <div class="card-head">
+          <div>
+            <h2>Attendance by Department</h2>
+            <p class="card-sub">Present vs total headcount, today</p>
+          </div>
+        </div>
+        <p class="card-sub" *ngIf="!admin.attendanceByDepartment.length">No department attendance data yet.</p>
+        <div class="chart-wrap" *ngIf="admin.attendanceByDepartment.length">
+          <canvas id="deptChart"></canvas>
+        </div>
+      </div>
+      <div class="card chart-card anim-in" style="--d:300ms">
+        <div class="card-head">
+          <div>
+            <h2>Leaves by Status</h2>
+            <p class="card-sub">All leave requests by decision &middot; All time</p>
+          </div>
+        </div>
+        <p class="card-sub" *ngIf="!admin.leavesByStatus.length">No leave data yet.</p>
+        <div class="chart-wrap" *ngIf="admin.leavesByStatus.length">
+          <canvas id="statusChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="split-grid">
+      <div class="card approvals-card anim-in" style="--d:300ms" [ngClass]="{ 'span-full': !onLeaveTodayList.length }">
+        <div class="card-head">
+          <h2>Pending Approvals <span class="count-pill" *ngIf="pendingRequests.length">{{ pendingRequests.length }}</span></h2>
+          <a routerLink="/leaves" class="card-link">View all leave requests</a>
+        </div>
+        <div class="empty-state" *ngIf="!pendingRequests.length">
+          <p>No pending requests.</p>
+        </div>
+        <ul class="request-list" *ngIf="pendingRequests.length">
+          <li *ngFor="let r of pendingRequests">
+            <img class="avatar-img" *ngIf="photoByName(r.employeeName) as p; else reqInit" [src]="p"
+                 (error)="onPhotoError(codeByName(r.employeeName))" [alt]="'Photo of ' + r.employeeName">
+            <ng-template #reqInit><span class="avatar-fallback" [ngClass]="tintForName(r.employeeName)" aria-hidden="true">{{ initials(r.employeeName) }}</span></ng-template>
+            <span class="request-main">
+              <strong class="request-name">{{ r.employeeName }}</strong>
+              <small class="request-meta">{{ r.leaveType }} &middot; {{ r.startDate | date:'dd MMM yyyy' }} &ndash; {{ r.endDate | date:'dd MMM yyyy' }} &middot; {{ daysBetween(r.startDate, r.endDate) }} {{ daysBetween(r.startDate, r.endDate) === 1 ? 'day' : 'days' }}</small>
+            </span>
+            <span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span>
+            <span class="request-actions">
+              <button class="btn btn-sm btn-approve" [disabled]="busyId === r.id" (click)="approve(r.id)">Approve</button>
+              <button class="btn btn-sm btn-reject" [disabled]="busyId === r.id" (click)="reject(r.id)">Reject</button>
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card widget-card anim-in" style="--d:300ms" *ngIf="onLeaveTodayList.length">
+        <h2>On Leave Today</h2>
+        <p class="card-sub" *ngIf="onLeaveTodayList.length">{{ onLeaveTodayList.length }} {{ onLeaveTodayList.length === 1 ? 'person' : 'people' }} away today</p>
+        <ul class="people-list" *ngIf="onLeaveTodayList.length">
+          <li *ngFor="let r of onLeaveTodayList">
+            <img class="avatar-img" *ngIf="photoByName(r.employeeName) as p; else leaveInit" [src]="p"
+                 (error)="onPhotoError(codeByName(r.employeeName))" [alt]="'Photo of ' + r.employeeName">
+            <ng-template #leaveInit><span class="avatar-fallback" [ngClass]="tintForName(r.employeeName)" aria-hidden="true">{{ initials(r.employeeName) }}</span></ng-template>
+            <span class="people-main">
+              <strong>{{ r.employeeName }}</strong>
+              <small>{{ r.leaveType }} &middot; until {{ r.endDate | date:'dd MMM' }}</small>
+            </span>
+            <span class="people-side">{{ daysBetween(r.startDate, r.endDate) }} {{ daysBetween(r.startDate, r.endDate) === 1 ? 'day' : 'days' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="split-grid split-grid--even">
+      <div class="card widget-card anim-in" style="--d:300ms">
+        <div class="card-head">
+          <h2>Recent Hires</h2>
+          <a routerLink="/employees" class="card-link">View all employees</a>
+        </div>
+        <div class="empty-state" *ngIf="!recentHires.length">
+          <p>No recent hires to show.</p>
+        </div>
+        <ul class="people-list" *ngIf="recentHires.length">
+          <li *ngFor="let e of recentHires">
+            <img class="avatar-img" *ngIf="photoByCode(e.employeeCode) as p; else hireInit" [src]="p"
+                 (error)="onPhotoError(e.employeeCode)" [alt]="'Photo of ' + e.fullName">
+            <ng-template #hireInit><span class="avatar-fallback" [ngClass]="tintForName(e.fullName)" aria-hidden="true">{{ initials(e.fullName) }}</span></ng-template>
+            <span class="people-main">
+              <strong>{{ e.fullName }}</strong>
+              <small>{{ e.designation }} &middot; {{ e.departmentName }}</small>
+            </span>
+            <span class="people-side">{{ e.dateOfJoining | date:'dd MMM yyyy' }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card widget-card anim-in" style="--d:300ms">
+        <h2>Upcoming Holidays</h2>
+        <div class="empty-state" *ngIf="!admin.upcomingHolidays.length">
+          <p>No upcoming holidays.</p>
+        </div>
+        <ul class="holiday-list" *ngIf="admin.upcomingHolidays.length">
+          <li *ngFor="let h of admin.upcomingHolidays">
+            <span class="date-chip">{{ h.date | date:'dd MMM' }}</span>
+            <span class="holiday-name">{{ h.name }}</span>
+            <span class="muted holiday-year">{{ h.date | date:'yyyy' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="split-grid split-grid--even">
+      <div class="card widget-card anim-in span-full" style="--d:300ms">
+        <div class="card-head">
+          <h2>Upcoming Work Anniversaries</h2>
+          <span class="card-sub">Next 30 days</span>
+        </div>
+        <div class="empty-state" *ngIf="!upcomingAnniversaries.length">
+          <p>No work anniversaries in the next 30 days.</p>
+        </div>
+        <ul class="people-list people-list--anniv" *ngIf="upcomingAnniversaries.length">
+          <li *ngFor="let a of upcomingAnniversaries">
+            <img class="avatar-img" *ngIf="photoByCode(a.employee.employeeCode) as p; else annivInit" [src]="p"
+                 (error)="onPhotoError(a.employee.employeeCode)" [alt]="'Photo of ' + a.employee.fullName">
+            <ng-template #annivInit><span class="avatar-fallback" [ngClass]="tintForName(a.employee.fullName)" aria-hidden="true">{{ initials(a.employee.fullName) }}</span></ng-template>
+            <span class="people-main">
+              <strong>{{ a.employee.fullName }}</strong>
+              <small>{{ a.employee.designation }} &middot; {{ a.employee.departmentName }}</small>
+            </span>
+            <span class="people-side">{{ a.years }} {{ a.years === 1 ? 'year' : 'years' }} &middot; {{ a.anniversaryDate | date:'dd MMM yyyy' }} &middot; in {{ daysUntil(a.anniversaryDate) }} {{ daysUntil(a.anniversaryDate) === 1 ? 'day' : 'days' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && !error && !isAdmin && mine">
+    <div class="section-head anim-in" style="--d:40ms">
+      <h2 class="section-title">My Leave Balances</h2>
+      <span class="meta-chip meta-chip--teal">{{ totalLeaveRemaining }} days left across all leave types</span>
+    </div>
+    <div class="balance-grid">
+      <div class="card balance-card card--lift anim-in" *ngFor="let b of mine.myLeaveBalances; let i = index" [ngClass]="accentFor(i)" [style.--d]="(90 + i * 50 > 300 ? 300 : 90 + i * 50) + 'ms'">
+        <div class="balance-ring-wrap" role="img" [attr.aria-label]="b.leaveType + ': ' + b.remaining + ' of ' + b.total + ' days left'">
+          <svg class="balance-ring" viewBox="0 0 84 84" aria-hidden="true">
+            <circle class="ring-track" cx="42" cy="42" r="34" fill="none" stroke-width="9"></circle>
+            <circle class="ring-fill" cx="42" cy="42" r="34" fill="none" stroke-width="9" [attr.stroke-dasharray]="ringDash(b.total, b.used)" [attr.stroke-dashoffset]="0"></circle>
+          </svg>
+          <span class="ring-center"><strong>{{ b.remaining }}</strong><small>left</small></span>
+        </div>
+        <div class="balance-info">
+          <span class="balance-type">{{ b.leaveType }}</span>
+          <span class="balance-left">{{ b.remaining }} of {{ b.total }} days left</span>
+          <span class="balance-used">{{ b.used }} used &middot; {{ usedPercent(b.total, b.used) }}%</span>
+          <span class="balance-bar"><span class="balance-bar-fill" [style.width.%]="usedPercent(b.total, b.used)"></span></span>
+        </div>
+      </div>
+      <div class="card empty-state" *ngIf="!mine.myLeaveBalances.length">
+        <p>No leave balances found for this year.</p>
+      </div>
+    </div>
+
+    <div class="stat-grid stat-grid-four">
+      <div class="card stat-card tint-amber card--lift anim-in" style="--d:240ms">
+        <div class="stat-top">
+          <span class="stat-label">Pending</span>
+          <span class="stat-card__icon chip-solid chip-amber" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('myPending', mine.myPendingRequests) }}</div>
+        <div class="stat-context">Awaiting approval</div>
+      </div>
+      <div class="card stat-card tint-teal card--lift anim-in" style="--d:290ms">
+        <div class="stat-top">
+          <span class="stat-label">Present</span>
+          <span class="stat-card__icon chip-solid chip-teal" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('present', mine.myAttendanceThisMonth.present) }}</div>
+        <div class="stat-context">days this month</div>
+      </div>
+      <div class="card stat-card tint-rose card--lift anim-in" style="--d:300ms">
+        <div class="stat-top">
+          <span class="stat-label">Absent</span>
+          <span class="stat-card__icon chip-solid chip-rose" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('absent', mine.myAttendanceThisMonth.absent) }}</div>
+        <div class="stat-context">days this month</div>
+      </div>
+      <div class="card stat-card tint-blue card--lift anim-in" style="--d:300ms">
+        <div class="stat-top">
+          <span class="stat-label">On Leave</span>
+          <span class="stat-card__icon chip-solid chip-blue" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        </div>
+        <div class="stat-value">{{ statValue('leave', mine.myAttendanceThisMonth.leave) }}</div>
+        <div class="stat-context">days this month</div>
+      </div>
+    </div>
+
+    <div class="card anim-in" style="--d:300ms">
+      <h2>Quick Actions</h2>
+      <div class="quick-actions">
+        <a routerLink="/leaves" class="qa-btn qa-violet">
+          <span class="qa-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>
+          <span class="qa-text"><strong>Apply for Leave</strong><small>Submit a new leave request</small></span>
+          <span class="qa-arrow" aria-hidden="true">&rsaquo;</span>
+        </a>
+        <button type="button" class="qa-btn qa-teal" [disabled]="checking" (click)="checkIn()">
+          <span class="qa-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+          <span class="qa-text"><strong>{{ checking ? 'Checking in…' : 'Check-in' }}</strong><small>Mark yourself present for today</small></span>
+          <span class="qa-arrow" aria-hidden="true">&rsaquo;</span>
+        </button>
+        <a routerLink="/attendance" class="qa-btn qa-blue">
+          <span class="qa-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+          <span class="qa-text"><strong>View Attendance</strong><small>Check your daily attendance record</small></span>
+          <span class="qa-arrow" aria-hidden="true">&rsaquo;</span>
+        </a>
+        <a routerLink="/holidays" class="qa-btn qa-amber">
+          <span class="qa-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <span class="qa-text"><strong>View Holidays</strong><small>See the full holiday calendar</small></span>
+          <span class="qa-arrow" aria-hidden="true">&rsaquo;</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card anim-in" style="--d:300ms">
+        <div class="card-head">
+          <h2>My Recent Leave Requests</h2>
+          <a routerLink="/leaves" class="card-link">View all</a>
+        </div>
+        <div class="empty-state" *ngIf="!myRecentLeaves.length">
+          <p>No leave requests yet.</p>
+          <a routerLink="/leaves" class="btn btn-primary btn-sm">Apply for Leave</a>
+        </div>
+        <ul class="request-list" *ngIf="myRecentLeaves.length">
+          <li *ngFor="let r of myRecentLeaves">
+            <span class="request-main">
+              <strong class="request-name">{{ r.leaveTypeName }}</strong>
+              <small class="request-meta">{{ r.startDate | date:'dd MMM yyyy' }} &ndash; {{ r.endDate | date:'dd MMM yyyy' }} &middot; {{ r.days }} {{ r.days === 1 ? 'day' : 'days' }}</small>
+            </span>
+            <span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span>
+          </li>
+        </ul>
+      </div>
+      <div class="card anim-in" style="--d:300ms">
+        <h2>Upcoming Holidays</h2>
+        <div class="empty-state" *ngIf="!mine.upcomingHolidays.length">
+          <p>No upcoming holidays.</p>
+        </div>
+        <ul class="holiday-list" *ngIf="mine.upcomingHolidays.length">
+          <li *ngFor="let h of mine.upcomingHolidays">
+            <span class="date-chip">{{ h.date | date:'dd MMM' }}</span>
+            <span class="holiday-name">{{ h.name }}</span>
+            <span class="muted holiday-year">{{ h.date | date:'yyyy' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </ng-container>
+
+  <footer class="dash-foot anim-in" style="--d:300ms">
+    <span class="dash-foot-meta">Employee Attendance &amp; Leave Management System &middot; {{ today | date:'yyyy' }}</span>
+    <span class="dash-foot-version">v5.0 • Attendance &amp; Leave Manager</span>
+  </footer>
+</div>

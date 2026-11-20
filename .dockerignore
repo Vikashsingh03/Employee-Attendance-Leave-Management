@@ -1,0 +1,25 @@
+# Build outputs — never ship these into the image (they are rebuilt inside it).
+**/bin/
+**/obj/
+
+# Version control metadata.
+.git/
+
+# Frontend dependencies and build output (the API image does not need them).
+node_modules/
+dist/
+.angular/
+
+# Local databases. The API seeds its own SQLite DB at startup via
+# EnsureCreated(), so no .db file ships in the image.
+*.db
+*.db-shm
+*.db-wal
+
+# Local staging / scratch area.
+staging/
+
+# IDE and local-only files.
+.vs/
+*.user
+.env

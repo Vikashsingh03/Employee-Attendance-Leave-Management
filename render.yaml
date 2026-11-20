@@ -1,0 +1,38 @@
+# Render Blueprint — Attendance & Leave API (free tier).
+# Deploy: Render dashboard -> New -> Blueprint -> pick the
+# employee-attendance-leave-management repo (branch main).
+# Render will ask for Jwt__Key on first deploy (sync: false) — the user
+# pastes a locally generated secret there, never in chat. See
+# staging/deploy/render-steps.md for the exact steps.
+#
+# HONEST NOTE — DATABASE: Render's free tier has NO SQL Server. The code
+# targets SQL Server (provider switch + connection string in appsettings.json)
+# to meet the faculty requirements, but THIS Render deployment runs SQLite
+# (DatabaseProvider=Sqlite below). That is fine for the demo/viva, and the
+# switch to SQL Server later is a config change only — see the steps doc.
+# Do NOT claim SQL Server is running on Render.
+#
+# No PORT variable here on purpose: Render assigns its own port.
+# Env values are entered with NO literal quotes in the dashboard.
+services:
+  - type: web
+    name: attendance-leave-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DatabaseProvider
+        value: Sqlite
+      - key: Jwt__Key
+        sync: false
+      - key: AllowedOrigins__0
+        value: https://employee-attendance-leave-management.vercel.app
+        # PLACEHOLDER — replace with the real Vercel frontend URL after the
+        # frontend is deployed. It must match the live Vercel URL exactly
+        # (same scheme, host, no trailing slash), or the browser will block
+        # API calls with a CORS error.
