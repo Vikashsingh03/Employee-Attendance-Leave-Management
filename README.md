@@ -39,7 +39,7 @@ The application is deployed and working: the Angular frontend runs on Vercel, th
 
 - Employee signup and login through the ASP.NET Core Web API (`POST /api/auth/register`, `POST /api/auth/login`).
 - JWT Bearer authentication for protected API requests.
-- BCrypt password hashing.
+- SHA-256 password hashing with a per-user random salt.
 - Two application roles:
   - `Admin`
   - `Employee`
@@ -96,7 +96,7 @@ The application is deployed and working: the Angular frontend runs on Vercel, th
 | Frontend | Angular 18 (TypeScript) |
 | Data Access | Entity Framework Core 8 |
 | Database | SQL Server (target) / SQLite (default and live demo) |
-| Authentication | JWT Bearer, BCrypt |
+| Authentication | JWT Bearer, SHA-256 with per-user salt |
 | API Documentation | Swagger / OpenAPI |
 | API Hosting | Render |
 | Frontend Hosting | Vercel |
